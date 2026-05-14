@@ -24,17 +24,17 @@ if (btnSignIn && btnSignUp) {
 
     // Mostrar mensajes de error procedentes del PHP
     const errMsgs = {
-        campos:       "Por favor, rellena todos los campos.",
+        campos: "Por favor, rellena todos los campos.",
         credenciales: "Usuario o contraseña incorrectos.",
-        email:        "El formato del correo no es válido.",
-        password:     "La contraseña debe tener al menos 6 caracteres.",
-        existe:       "Ese usuario o correo ya está registrado.",
-        bbdd:         "Error al guardar los datos. Inténtalo de nuevo.",
-        session:      "Error de sesión. Vuelve a iniciar sesión.",
+        email: "El formato del correo no es válido.",
+        password: "La contraseña debe tener al menos 6 caracteres.",
+        existe: "Ese usuario o correo ya está registrado.",
+        bbdd: "Error al guardar los datos. Inténtalo de nuevo.",
+        session: "Error de sesión. Vuelve a iniciar sesión.",
     };
     const params = new URLSearchParams(window.location.search);
     const errKey = params.get("error");
-    const form   = params.get("form");
+    const form = params.get("form");
     if (errKey && errMsgs[errKey]) {
         if (form === "registro") container.classList.add("toggle");
         const alert = document.createElement("div");
@@ -53,7 +53,7 @@ if (btnSignIn && btnSignUp) {
 }
 
 /* ══════════════════════════════════════════════════
-   BASE DE DATOS — localStorage
+   BASE DE DATOS — PHP myadmin
 ══════════════════════════════════════════════════ */
 const DB = {
     getSession: () => {
@@ -70,7 +70,7 @@ const DB = {
     saveBoards: async (uid, boards) => {
         await fetch(`api/boards.php?action=save&userId=${uid}`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ boards })
         });
     },
@@ -83,7 +83,7 @@ const DB = {
     addActivity: async (uid, text) => {
         await fetch(`api/boards.php?action=activity&userId=${uid}`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text })
         });
     },
@@ -96,7 +96,7 @@ const DB = {
     addMessage: async (roomId, msg) => {
         await fetch(`api/chat.php?action=send`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ roomId, senderId: msg.senderId, text: msg.text })
         });
     },
@@ -382,6 +382,33 @@ function createBoard() {
 function openBoard(boardId) {
     S.curBoardId = boardId;
     showView("board");
+    const btn = el("btn-star-board");
+    const b = S.boards.find(x => x.id === boardId);
+    if (btn && b) {
+        btn.style.display = "";
+        btn.innerHTML = `<i class='bx bx${b.starred ? "s" : ""}-star'></i>`;
+    }
+}
+
+async function deleteCurrentBoard() {
+    if (!S.curBoardId) return;
+    if (!confirm("¿Estás seguro de que deseas eliminar este tablero? Todo su contenido se perderá para siempre.")) return;
+    S.boards = S.boards.filter(b => b.id !== S.curBoardId);
+    await DB.saveBoards(S.user.id, S.boards);
+    S.curBoardId = null;
+    toast("Tablero eliminado", "success");
+    showView('home');
+}
+
+function toggleStarCurrent() {
+    if (!S.curBoardId) return;
+    const b = S.boards.find(x => x.id === S.curBoardId);
+    if (b) {
+        b.starred = !b.starred;
+        saveBoards();
+        const btn = el("btn-star-board");
+        if (btn) btn.innerHTML = `<i class='bx bx${b.starred ? "s" : ""}-star'></i>`;
+    }
 }
 
 function renderKanban() {

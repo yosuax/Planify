@@ -71,7 +71,9 @@ elseif ($action === 'save') {
     try {
         // En un entorno real se haría un upsert. Por simplicidad de la migración del localStorage,
         // vamos a borrar los tableros del usuario y recrearlos (o actualizarlos si existen).
+        $incomingBoardIds = [];
         foreach ($data['boards'] as $b) {
+            $incomingBoardIds[] = $b['id'];
             // Upsert Tablero
             $stmt = $pdo->prepare("INSERT INTO tableros (id, title, description, color, starred, created_by) 
                                    VALUES (?, ?, ?, ?, ?, ?) 
@@ -85,7 +87,9 @@ elseif ($action === 'save') {
             
             // Upsert Columnas
             $colOrder = 0;
+            $incomingColIds = [];
             foreach ($b['columns'] as $c) {
+                $incomingColIds[] = $c['id'];
                 $stmt = $pdo->prepare("INSERT INTO columnas (id, tablero_id, title, type, order_index) 
                                        VALUES (?, ?, ?, ?, ?) 
                                        ON DUPLICATE KEY UPDATE title=?, type=?, order_index=?");
@@ -97,7 +101,9 @@ elseif ($action === 'save') {
                 
                 // Upsert Tareas
                 $cardOrder = 0;
+                $incomingCardIds = [];
                 foreach ($c['cards'] as $card) {
+                    $incomingCardIds[] = $card['id'];
                     $stmt = $pdo->prepare("INSERT INTO tareas (id, columna_id, title, description, priority, due_date, tag, order_index) 
                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                                            ON DUPLICATE KEY UPDATE columna_id=?, title=?, description=?, priority=?, due_date=?, tag=?, order_index=?");
@@ -108,7 +114,7 @@ elseif ($action === 'save') {
                     ]);
                     $cardOrder++;
                     
-                    // Upsert Checklist (borrar y recrear por simplicidad)
+                    // Upsert Checklist
                     $stmt = $pdo->prepare("DELETE FROM tareas_checklist WHERE tarea_id = ?");
                     $stmt->execute([$card['id']]);
                     if (!empty($card['checklist'])) {
@@ -118,8 +124,37 @@ elseif ($action === 'save') {
                         }
                     }
                 }
+                // Limpiar tareas borradas
+                if (!empty($incomingCardIds)) {
+                    $inQuery = implode(',', array_fill(0, count($incomingCardIds), '?'));
+                    $stmt = $pdo->prepare("DELETE FROM tareas WHERE columna_id = ? AND id NOT IN ($inQuery)");
+                    $stmt->execute(array_merge([$c['id']], $incomingCardIds));
+                } else {
+                    $stmt = $pdo->prepare("DELETE FROM tareas WHERE columna_id = ?");
+                    $stmt->execute([$c['id']]);
+                }
+            }
+            // Limpiar columnas borradas
+            if (!empty($incomingColIds)) {
+                $inQuery = implode(',', array_fill(0, count($incomingColIds), '?'));
+                $stmt = $pdo->prepare("DELETE FROM columnas WHERE tablero_id = ? AND id NOT IN ($inQuery)");
+                $stmt->execute(array_merge([$b['id']], $incomingColIds));
+            } else {
+                $stmt = $pdo->prepare("DELETE FROM columnas WHERE tablero_id = ?");
+                $stmt->execute([$b['id']]);
             }
         }
+        
+        // Limpiar tableros borrados (sólo los creados por el usuario)
+        if (!empty($incomingBoardIds)) {
+            $inQuery = implode(',', array_fill(0, count($incomingBoardIds), '?'));
+            $stmt = $pdo->prepare("DELETE FROM tableros WHERE created_by = ? AND id NOT IN ($inQuery)");
+            $stmt->execute(array_merge([$userId], $incomingBoardIds));
+        } else {
+            $stmt = $pdo->prepare("DELETE FROM tableros WHERE created_by = ?");
+            $stmt->execute([$userId]);
+        }
+
         $pdo->commit();
         echo json_encode(['success' => true]);
     } catch (Exception $e) {
