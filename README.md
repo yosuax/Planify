@@ -71,7 +71,7 @@ Toda la documentación relacionada al Trabajo de Fin de Grado, incluyendo Diagra
 
 ## 🧑‍💻 Autores
 - **Yosuax** - [GitHub](https://github.com/yosuax)
-- **Antonio Tirado** 
+- **Antonio Tirado** - [GitHub] (https://github.com/antoniotiradog05)
 - **Fernando**
 - **Pablo** 
 
