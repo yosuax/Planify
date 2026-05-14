@@ -42,8 +42,8 @@ if ($action === 'register') {
         exit;
     }
     
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE usuario = ?");
-    $stmt->execute([$data['usuario']]);
+    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE usuario = ? OR email = ?");
+    $stmt->execute([$data['usuario'], $data['usuario']]);
     $user = $stmt->fetch();
     
     if ($user && password_verify($data['password'], $user['password'])) {
@@ -57,6 +57,10 @@ if ($action === 'register') {
     } else {
         echo json_encode(['error' => 'Usuario o contraseña incorrectos']);
     }
+} elseif ($action === 'users') {
+    $stmt = $pdo->query("SELECT id, usuario, email, nombre as name, plan FROM usuarios");
+    $users = $stmt->fetchAll();
+    echo json_encode(['success' => true, 'users' => $users]);
 } else {
     echo json_encode(['error' => 'Acción no válida']);
 }
